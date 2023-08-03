@@ -52,6 +52,7 @@ typedef struct kinc_file_reader {
 } kinc_file_reader_t;
 #endif
 
+KINC_FUNC void kinc_get_file_path(char *filepath, const char *filename, int type);
 /// <summary>
 /// Opens a file for reading.
 /// </summary>
@@ -242,90 +243,94 @@ char *kinc_internal_get_files_location(void) {
 void kinc_internal_uwp_installed_location_path(char *path);
 #endif
 
+void kinc_get_file_path(char *filepath, const char *filename, int type) {
+  #ifdef KORE_IOS
+  strcpy(filepath, type == KINC_FILE_TYPE_SAVE ? kinc_internal_save_path() : iphonegetresourcepath());
+  if (type != KINC_FILE_TYPE_SAVE) {
+    strcat(filepath, "/");
+    strcat(filepath, KORE_DEBUGDIR);
+    strcat(filepath, "/");
+  }
+
+  strcat(filepath, filename);
+#endif
+#ifdef KORE_MACOS
+  strcpy(filepath, type == KINC_FILE_TYPE_SAVE ? kinc_internal_save_path() : macgetresourcepath());
+  if (type != KINC_FILE_TYPE_SAVE) {
+    strcat(filepath, "/");
+    strcat(filepath, KORE_DEBUGDIR);
+    strcat(filepath, "/");
+  }
+  strcat(filepath, filename);
+#endif
+#ifdef KORE_WINDOWS
+  if (type == KINC_FILE_TYPE_SAVE) {
+    strcpy(filepath, kinc_internal_save_path());
+    strcat(filepath, filename);
+  }
+  else {
+    strcpy(filepath, filename);
+  }
+  size_t filepathlength = strlen(filepath);
+  for (size_t i = 0; i < filepathlength; ++i)
+    if (filepath[i] == '/')
+      filepath[i] = '\\';
+#endif
+#ifdef KORE_WINDOWSAPP
+  kinc_internal_uwp_installed_location_path(filepath);
+  strcat(filepath, "\\");
+  strcat(filepath, filename);
+#endif
+#ifdef KORE_LINUX
+  if (type == KINC_FILE_TYPE_SAVE) {
+    strcpy(filepath, kinc_internal_save_path());
+    strcat(filepath, filename);
+  }
+  else {
+    strcpy(filepath, filename);
+  }
+#endif
+#ifdef KORE_WASM
+  strcpy(filepath, filename);
+#endif
+#ifdef KORE_EMSCRIPTEN
+  strcpy(filepath, KORE_DEBUGDIR);
+  strcat(filepath, "/");
+  strcat(filepath, filename);
+#endif
+#ifdef KORE_TIZEN
+  for (int i = 0; i < Tizen::App::App::GetInstance()->GetAppDataPath().GetLength(); ++i) {
+    wchar_t c;
+    Tizen::App::App::GetInstance()->GetAppDataPath().GetCharAt(i, c);
+    filepath[i] = (char)c;
+  }
+  filepath[Tizen::App::App::GetInstance()->GetAppDataPath().GetLength()] = 0;
+  strcat(filepath, "/");
+  strcat(filepath, filename);
+#endif
+
+#ifdef KORE_WINDOWS
+  // Drive letter or network
+  bool isAbsolute = (filename[1] == ':' && filename[2] == '\\') || (filename[0] == '\\' && filename[1] == '\\');
+#else
+  bool isAbsolute = filename[0] == '/';
+#endif
+
+  if (isAbsolute) {
+    strcpy(filepath, filename);
+  }
+  else if (fileslocation != NULL && type != KINC_FILE_TYPE_SAVE) {
+    strcpy(filepath, fileslocation);
+    strcat(filepath, "/");
+    strcat(filepath, filename);
+  }
+}
+
 #ifndef KORE_ANDROID
 bool kinc_file_reader_open(kinc_file_reader_t *reader, const char *filename, int type) {
 	memset(reader, 0, sizeof(kinc_file_reader_t));
 	char filepath[1001];
-#ifdef KORE_IOS
-	strcpy(filepath, type == KINC_FILE_TYPE_SAVE ? kinc_internal_save_path() : iphonegetresourcepath());
-	if (type != KINC_FILE_TYPE_SAVE) {
-		strcat(filepath, "/");
-		strcat(filepath, KORE_DEBUGDIR);
-		strcat(filepath, "/");
-	}
-
-	strcat(filepath, filename);
-#endif
-#ifdef KORE_MACOS
-	strcpy(filepath, type == KINC_FILE_TYPE_SAVE ? kinc_internal_save_path() : macgetresourcepath());
-	if (type != KINC_FILE_TYPE_SAVE) {
-		strcat(filepath, "/");
-		strcat(filepath, KORE_DEBUGDIR);
-		strcat(filepath, "/");
-	}
-	strcat(filepath, filename);
-#endif
-#ifdef KORE_WINDOWS
-	if (type == KINC_FILE_TYPE_SAVE) {
-		strcpy(filepath, kinc_internal_save_path());
-		strcat(filepath, filename);
-	}
-	else {
-		strcpy(filepath, filename);
-	}
-	size_t filepathlength = strlen(filepath);
-	for (size_t i = 0; i < filepathlength; ++i)
-		if (filepath[i] == '/')
-			filepath[i] = '\\';
-#endif
-#ifdef KORE_WINDOWSAPP
-	kinc_internal_uwp_installed_location_path(filepath);
-	strcat(filepath, "\\");
-	strcat(filepath, filename);
-#endif
-#ifdef KORE_LINUX
-	if (type == KINC_FILE_TYPE_SAVE) {
-		strcpy(filepath, kinc_internal_save_path());
-		strcat(filepath, filename);
-	}
-	else {
-		strcpy(filepath, filename);
-	}
-#endif
-#ifdef KORE_WASM
-	strcpy(filepath, filename);
-#endif
-#ifdef KORE_EMSCRIPTEN
-	strcpy(filepath, KORE_DEBUGDIR);
-	strcat(filepath, "/");
-	strcat(filepath, filename);
-#endif
-#ifdef KORE_TIZEN
-	for (int i = 0; i < Tizen::App::App::GetInstance()->GetAppDataPath().GetLength(); ++i) {
-		wchar_t c;
-		Tizen::App::App::GetInstance()->GetAppDataPath().GetCharAt(i, c);
-		filepath[i] = (char)c;
-	}
-	filepath[Tizen::App::App::GetInstance()->GetAppDataPath().GetLength()] = 0;
-	strcat(filepath, "/");
-	strcat(filepath, filename);
-#endif
-
-#ifdef KORE_WINDOWS
-	// Drive letter or network
-	bool isAbsolute = (filename[1] == ':' && filename[2] == '\\') || (filename[0] == '\\' && filename[1] == '\\');
-#else
-	bool isAbsolute = filename[0] == '/';
-#endif
-
-	if (isAbsolute) {
-		strcpy(filepath, filename);
-	}
-	else if (fileslocation != NULL && type != KINC_FILE_TYPE_SAVE) {
-		strcpy(filepath, fileslocation);
-		strcat(filepath, "/");
-		strcat(filepath, filename);
-	}
+  kinc_get_file_path(filepath, filename, type);
 
 #ifdef KORE_WINDOWS
 	MultiByteToWideChar(CP_UTF8, 0, filepath, -1, wfilepath, 1000);
